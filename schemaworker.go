@@ -1,3 +1,29 @@
+//
+//
+//                       _oo0oo_
+//                      o8888888o
+//                      88" . "88
+//                      (| -_- |)
+//                      0\  =  /0
+//                    ___/`___'\___
+//                  .' \\|     |// '.
+//                 / \\|||  :  |\\// \
+//                / _||||| -:- |||||- \
+//               |   | \\\  _  /// |   |
+//               | \_|  ''\---/''  |_/ |
+//               \   .-\__ '-'  ___/-. /
+//             ___'. .'  /--.--\  '. .'___
+//            ."" '< '.___\_<|>_/___.' >' "".
+//           | | : '- \'.;'\ - /';.'/ - ' : | |
+//           \ \  '_.  \_ __\ /__ _/    .-' / /
+//       ====='-.____ .__ \_____/ ____.-'___.-'=====
+//                        '=---='
+//
+//      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//
+//       佛祖保佑 	           永无BUG 			永不修改
+//
+//
 package main
 
 import (
@@ -6,29 +32,21 @@ import (
 	"github.com/fzzy/radix/redis"
 	"github.com/streadway/amqp"
 	"log"
-	"os"
-	"time"
+	"strings"
 )
 
 func failOnError(err error, msg string) {
 	if err != nil {
 		log.Fatalf("%s: %s", msg, err)
-		panic(fmt.Sprintf("%s: %s", msg, err))
+		//panic(fmt.Sprintf("%s: %s", msg, err))
 	}
 }
 
 func errHndlr(err error) {
 	if err != nil {
 		fmt.Println("error:", err)
-		os.Exit(1)
+		//os.Exit(1)
 	}
-}
-
-func setclasses(appkey string) string {
-	return fmt.Sprintf("ns:classes:%s", appkey)
-}
-func setschema(classes string, appkey string) string {
-	return fmt.Sprintf("ns:schema:%s:%s", classes, appkey)
 }
 
 func main() {
@@ -44,7 +62,7 @@ func main() {
 
 	q, err := ch.QueueDeclare( //string, bool, bool, bool, bool, table (Queuem error)
 		"schema", // name
-		false,    // durable
+		true,     // durable
 		false,    // delete when unused
 		false,    // exclusive
 		false,    // noWait
@@ -56,9 +74,9 @@ func main() {
 	failOnError(err, "Failed to register a consumer")
 
 	forever := make(chan bool)
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 200; i++ {
 		go func() {
-			c, err := redis.DialTimeout("tcp", "stage.haru.io:6379", time.Duration(10)*time.Second)
+			c, err := redis.Dial("tcp", "stage.haru.io:6400")
 			errHndlr(err)
 			defer c.Close()
 			for {
@@ -80,6 +98,7 @@ func main() {
 						if k == "class" {
 							classname = v.(string)
 						}
+
 						if k == "schema" {
 							keys = v.([]interface{})
 						}
@@ -93,7 +112,9 @@ func main() {
 					// insert schema
 					schemakey := setschema(classname, appkey)
 					for _, u := range keys {
-						r := c.Cmd("sadd", schemakey, u)
+						fmt.Println(u)
+						strSplit := strings.Split(u.(string), ".")
+						r := c.Cmd("hset", schemakey, strSplit[0], strSplit[1])
 						errHndlr(r.Err)
 					}
 
@@ -104,6 +125,12 @@ func main() {
 	}
 
 	<-forever
+	//}
 }
 
-
+func setclasses(appkey string) string {
+	return fmt.Sprintf("ns:classes:%s", appkey)
+}
+func setschema(classes string, appkey string) string {
+	return fmt.Sprintf("ns:schema:%s:%s", classes, appkey)
+}

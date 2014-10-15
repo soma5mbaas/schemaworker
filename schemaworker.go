@@ -31,25 +31,39 @@ import (
 	"fmt"
 	"github.com/fzzy/radix/redis"
 	"github.com/streadway/amqp"
+	"io"
 	"log"
+	"os"
 	"strings"
 )
 
+//logger
+var mylogger *log.Logger
+
 func failOnError(err error, msg string) {
 	if err != nil {
-		log.Fatalf("%s: %s", msg, err)
+		mylogger.Fatalf("%s: %s", msg, err)
 		//panic(fmt.Sprintf("%s: %s", msg, err))
 	}
 }
 
 func errHndlr(err error) {
 	if err != nil {
-		fmt.Println("error:", err)
+		mylogger.Println("error:", err)
 		//os.Exit(1)
 	}
 }
 
 func main() {
+	logf, err := os.OpenFile("logFileName", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0640)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer logf.Close()
+
+	log.SetOutput(logf)
+	mylogger = log.New(io.MultiWriter(logf, os.Stdout), "schema_worker: ", log.Ldate|log.Ltime|log.Llongfile)
+	mylogger.Println("goes to logf")
 
 	conn, err := amqp.Dial("amqp://admin:admin@stage.haru.io:5672/")
 	failOnError(err, "Failed to connect to RabbitMQ")
